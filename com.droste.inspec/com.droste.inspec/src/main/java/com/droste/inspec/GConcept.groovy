@@ -6,6 +6,10 @@ import com.droste.inspec.model.StockDate
 
 class GConcept
 {
+
+	static Double MINGAIN = 1.2
+	static Double MAXLOSS = 0.93
+	
 	/**
 	 * http://www.google.com/finance/historical?cid=12607212&startdate=Mar+7%2C+2010&enddate=Mar+5%2C+2012&num=30",,,,,
 	 */
@@ -25,11 +29,11 @@ class GConcept
 		{ item, index ->
 			if (index == entries.size()-1) return entryPoints
 			Double currentValue = item.getOpen()
-			println("currentValue " + currentValue)
+//			println("currentValue " + currentValue)
 			List afterCurrentPoint = entries[index+1.. entries.size()-1]
 			afterCurrentPoint.each
 			{
-				if (it.getLow() < currentValue * 0.95) println("stop under Value: now " + it.getLow() + " high value was: " + currentValue)
+				if (it.getLow() < currentValue * MAXLOSS) println("stop under Value: now " + it.getLow() + " high value was: " + currentValue)
 				else if (it.getHigh() > currentValue) currentValue = it.getHigh()
 			}
 		}
@@ -42,51 +46,63 @@ class GConcept
 		//steps:
 		//for each given entry:
 		entries.eachWithIndex { item, index ->
-			println "ENTRY: " + item.getDate()
+//			println "ENTRY: " + item.getDate()
 			if (index == entries.size()-1) return figures
+			
 			//			for each nextentry after it:
-			def maxpoint = item
 			def afterCurrentPoint = entries[index+1.. entries.size()-1]
-			afterCurrentPoint.each {
-				println "  SubEntry: " + it.getDate()
-				//	if nextentry > maxpoint : maxpoint = nextentry
-				if (it.getHigh() > maxpoint.getHigh())
+		    def newFigure = findFigureForCurrentPoint(item, afterCurrentPoint)
+			if (newFigure != null) figures.add(newFigure)
+		}
+		return figures;
+	}
+	
+	static Figure findFigureForCurrentPoint( StockDate item, List<StockDate> afterCurrentPoint)
+	{
+		def maxpoint = item
+		for (StockDate current : afterCurrentPoint) {
+			
+//			println "  SubEntry: " + current.getDate()
+			//	if nextentry > maxpoint : maxpoint = nextentry
+			if (current.getHigh() > maxpoint.getHigh())
+			{
+				maxpoint = current
+//				println "  new maxpoint " + maxpoint.getDate() + " " + maxpoint.getHigh()
+			}
+			//	if nextentry < maxpoint * 0.95
+			if (current.getClose() < maxpoint.getHigh() * MAXLOSS)
+			{
+//				println "  current.getClose is " + current.getClose() + " smaller than " + maxpoint.getHigh() * MAXLOSS
+				//							cutoff = nextentry
+				def cutoff = current
+				// => wert mit mind 10% gewinn
+				if (item != cutoff && cutoff.getClose() > item.getHigh() * MINGAIN)
 				{
-					maxpoint = it
-					println "  new maxpoint " + maxpoint.getDate() + " " + maxpoint.getHigh()
+					return new Figure(item, maxpoint, cutoff)
+//					println "    added new figure with items from " + item.getDate() + maxpoint.getDate() + cutoff.getDate()
+				} else if (item.getHigh() * MAXLOSS > current.getHigh())
+				{
+					return null;
 				}
-				//	if nextentry < maxpoint * 0.95
-				if (it.getClose() < maxpoint.getHigh() * 0.95)
-				{
-					println "  it.getClose is " + it.getClose() + " smaller than " + maxpoint.getHigh() * 0.95
-					//							cutoff = nextentry
-					def cutoff = it
-					// => wert mit mind 10% gewinn
-					if (item != cutoff && cutoff.getClose() > item.getHigh() * 1.1)
-					{
-						figures.add(new Figure(item, maxpoint, cutoff))
-						println "    added new figure with items from " + item.getDate() + maxpoint.getDate() + cutoff.getDate()
-					} else {
-						println "    no new figure as item != cutoff = " + (item != cutoff) +	" or cutoff.getClose() > item.getHigh() * 1.1 is " + cutoff.getClose() + " > " + item.getHigh() * 1.1
-					}
+				else {
+//					println "    no new figure as item != cutoff = " + (item != cutoff) +	" or cutoff.getClose() > item.getHigh() * 1.1 is " + cutoff.getClose() + " > " + item.getHigh() * MINGAIN
 				}
-				else
-				{
-					println "----afterCurrentPoint.indexOf(item) = " + afterCurrentPoint.indexOf(it)
-					println "----afterCurrentPoint.size()-1 " +afterCurrentPoint.size()-1
-					println "----maxPoint.getHigh() " + maxpoint.getHigh()
-					println "----item.getHigh * 1.1 " + item.getHigh() * 1.1
+			}
+			else
+			{
+//				println "----afterCurrentPoint.indexOf(item) = " + afterCurrentPoint.indexOf(current)
+//				println "----afterCurrentPoint.size()-1 " +afterCurrentPoint.size()-1
+//				println "----maxPoint.getHigh() " + maxpoint.getHigh()
+//				println "----item.getHigh * 1.1 " + item.getHigh() * MINGAIN
 
-					if (afterCurrentPoint.indexOf(it) == afterCurrentPoint.size()-1 && maxpoint.getHigh() > item.getHigh() * 1.1)
-					{
-						println("    hit at the end")
-						figures.add(new Figure(item, maxpoint, it))
-						println "    added new figure with items from " + item.getDate() + maxpoint.getDate() + it.getDate()
-					}
+				if (afterCurrentPoint.indexOf(current) == afterCurrentPoint.size()-1 && maxpoint.getHigh() > item.getHigh() * MINGAIN)
+				{
+//					println("    hit at the end")
+//					println "    adding new figure with items from " + item.getDate() + maxpoint.getDate() + current.getDate()
+					return new Figure(item, maxpoint, current)
 				}
 			}
 		}
-		return figures;
 	}
 
 	static List<StockDate> readCsvFile(String filename) {
@@ -101,6 +117,7 @@ class GConcept
 		removeList.each { entries.remove(it) }
 		return entries
 	}
+	
 }
 
 

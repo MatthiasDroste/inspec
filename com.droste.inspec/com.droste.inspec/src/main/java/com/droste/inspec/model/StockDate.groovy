@@ -56,4 +56,21 @@ class StockDate {
 			entry = entry.substring(1, entry.length()-1)
 		return entry
 	}
+
+	@Override
+	public int hashCode() {
+		return date.hashCode() + open.hashCode() * 1 + high.hashCode() * 2 + low.hashCode() * 3 + close.hashCode() * 4 + volume
+	}
+
+	@Override
+	public boolean equals(Object obj) 
+	{
+		if (obj.hashCode() == hashCode()) return true
+		return false
+	}
+
+	String toString() 
+	{
+		return "date " + date + " open " + open + " high " + high + " low " + low + " close " + close + " volume " + volume
+	}
 }
